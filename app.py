@@ -15,7 +15,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Estilos CSS personalizados para replicar el panel de la imagen
+# Estilos CSS personalizados para replicar el panel de la interfaz
 st.markdown("""
 <style>
     .stApp {
@@ -49,7 +49,7 @@ def load_disease_model():
     num_ftrs = model.fc.in_features
     model.fc = nn.Linear(num_ftrs, len(CLASSES))
     
-    # Si subiste tu modelo_cafe.pth al repositorio, lo cargará:
+    # Cargar pesos si existen
     if os.path.exists('modelo_cafe.pth'):
         model.load_state_dict(torch.load('modelo_cafe.pth', map_location=torch.device('cpu')))
     
@@ -65,7 +65,7 @@ transform = transforms.Compose([
 ])
 
 # ----------------------------------------------------------------------
-# 3. INTEGRACIÓN OBLIGATORIA CON API GROQ (LLM)
+# 3. INTEGRACIÓN CON LA API DE GROQ
 # ----------------------------------------------------------------------
 def generar_recomendacion_groq(enfermedad, porcentaje_confianza):
     """
@@ -131,7 +131,8 @@ with col_left:
 
     if uploaded_file is not None:
         image = Image.open(uploaded_file).convert('RGB')
-        st.image(image, use_column_width=True)
+        # SINTAXIS CORREGIDA PARA STREAMLIT
+        st.image(image, use_container_width=True)
 
 with col_right:
     if uploaded_file is not None:
@@ -145,7 +146,7 @@ with col_right:
         enfermedad_predicha = CLASSES[top_catid.item()]
         confianza_val = top_prob.item() * 100
 
-        # Encabezado Diagnóstico (Estilo UI de la captura)
+        # Encabezado Diagnóstico
         c_diag, c_conf = st.columns([3, 1])
         with c_diag:
             st.markdown(f"### **{enfermedad_predicha}**")
@@ -156,7 +157,7 @@ with col_right:
 
         st.divider()
 
-        # Llamada a Groq para generar la recomendación en tiempo real
+        # Recomendación técnica de Groq
         st.markdown("#### 💡 **ORIENTACIÓN Y MANEJO PREVENTIVO**")
         st.caption("Aquí tienes una recomendación técnica detallada generada automáticamente por Groq API:")
         
