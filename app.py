@@ -12,18 +12,12 @@ import io
 import re
 from datetime import datetime
 
-# ---------------------------------------------------------------------------
-# Configuración de la página
-# ---------------------------------------------------------------------------
 st.set_page_config(
     page_title="Cuaderno de Campo · Café",
     page_icon="🌿",
     layout="wide"
 )
 
-# ---------------------------------------------------------------------------
-# Nombres bonitos y color de acento por clase
-# ---------------------------------------------------------------------------
 NOMBRES_BONITOS = {
     "healthy": "Hoja sana",
     "miner": "Minador de la hoja",
@@ -52,9 +46,6 @@ COLOR_CLASE = {
     "red_spider": "#9B2C2C",
 }
 
-# ---------------------------------------------------------------------------
-# Estilo — cuaderno de campo agronómico
-# ---------------------------------------------------------------------------
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
@@ -237,9 +228,6 @@ html, body, [class*="css"] {
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------------------------------------------------------------------
-# Modelo y clientes (cacheados)
-# ---------------------------------------------------------------------------
 @st.cache_resource
 def cargar_modelo():
     modelo = tf.keras.models.load_model('modelo_cafe.h5')
@@ -349,10 +337,6 @@ def generar_pdf(clase, confianza, texto_groq):
     buffer.seek(0)
     return buffer
 
-
-# ---------------------------------------------------------------------------
-# Encabezado
-# ---------------------------------------------------------------------------
 st.markdown('<div class="eyebrow">UTH · Inteligencia de Negocios · Proyecto de nube</div>', unsafe_allow_html=True)
 st.markdown('<div class="titulo-principal">Cuaderno de campo</div>', unsafe_allow_html=True)
 st.markdown(
@@ -367,9 +351,6 @@ if "resultado" not in st.session_state:
 
 col_izq, col_der = st.columns([1, 1.15], gap="large")
 
-# ---------------------------------------------------------------------------
-# Columna izquierda — la muestra
-# ---------------------------------------------------------------------------
 with col_izq:
     st.markdown('<div class="pagina">', unsafe_allow_html=True)
     st.markdown('<div class="cinta"></div>', unsafe_allow_html=True)
@@ -395,9 +376,6 @@ if imagen is not None and analizar:
         clase, confianza = predecir(imagen)
         st.session_state.resultado = {"clase": clase, "confianza": confianza}
 
-# ---------------------------------------------------------------------------
-# Columna derecha — la entrada de diagnóstico
-# ---------------------------------------------------------------------------
 with col_der:
     st.markdown('<div class="pagina">', unsafe_allow_html=True)
 
@@ -445,4 +423,10 @@ with col_der:
             )
 
     st.markdown('</div>', unsafe_allow_html=True)
+
 nombres_clases = ", ".join(NOMBRES_BONITOS.get(c, c) for c in labels.values())
+st.markdown(
+    f'<div class="nota-pie">Diagnóstico generado por IA a partir de un modelo entrenado en: '
+    f'{nombres_clases} · Confirme siempre con un técnico agrónomo</div>',
+    unsafe_allow_html=True
+)
