@@ -344,7 +344,7 @@ st.markdown('<div class="eyebrow">UTH · Inteligencia de Negocios · Proyecto de
 st.markdown('<div class="titulo-principal">Cuaderno de campo</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="subtitulo">Registro de una hoja de café para diagnóstico. '
-    'Suba una foto o tómela con la cámara y el sistema anota la especie detectada, '
+    'Suba una foto y el sistema anota la especie detectada, '
     'la confianza y las recomendaciones de manejo.</div>',
     unsafe_allow_html=True
 )
