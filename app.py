@@ -214,6 +214,13 @@ html, body, [class*="css"] {
     border-radius: 2px;
     padding: 0.6rem;
 }
+.pagina [data-testid="stImage"] img {
+    max-height: 360px;
+    width: auto !important;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto;
+}
 .stTabs [data-baseweb="tab"] {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 0.78rem;
