@@ -288,7 +288,7 @@ Si la clase es "Hoja sana", ajusta el contenido a mantenimiento preventivo en ve
 Sé conciso pero útil, en párrafos cortos, sin usar viñetas ni asteriscos.
 """
     respuesta = cliente_groq.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="openai/gpt-oss-120b",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.4,
     )
@@ -445,10 +445,3 @@ with col_der:
             )
 
     st.markdown('</div>', unsafe_allow_html=True)
-
-nombres_clases = ", ".join(NOMBRES_BONITOS.get(c, c) for c in labels.values())
-st.markdown(
-    f'<div class="nota-pie">Diagnóstico generado por IA a partir de un modelo entrenado en: '
-    f'{nombres_clases} · Confirme siempre con un técnico agrónomo</div>',
-    unsafe_allow_html=True
-)
