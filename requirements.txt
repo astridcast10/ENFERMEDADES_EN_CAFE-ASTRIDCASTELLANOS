@@ -1,5 +1,6 @@
 streamlit
-torch
-torchvision
+tensorflow
+numpy
 pillow
 groq
+reportlab
