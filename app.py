@@ -139,7 +139,7 @@ archivo = st.file_uploader("Subir imagen de la hoja", type=["jpg", "jpeg", "png"
 
 if archivo is not None:
     imagen = Image.open(archivo)
-    st.image(imagen, caption="Imagen cargada", use_column_width=True)
+    st.image(imagen, caption="Imagen cargada", use_container_width=True)
 
     if st.button("Analizar hoja"):
         with st.spinner("Analizando la imagen..."):
