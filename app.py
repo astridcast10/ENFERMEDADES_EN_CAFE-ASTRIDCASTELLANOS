@@ -29,6 +29,8 @@ NOMBRES_BONITOS = {
     "miner": "Minador de la hoja",
     "phoma": "Phoma",
     "rust": "Roya del café",
+    "cercospora": "Cercospora (mancha de hierro)",
+    "red_spider": "Araña roja",
 }
 
 NOMBRES_CIENTIFICOS = {
@@ -36,14 +38,18 @@ NOMBRES_CIENTIFICOS = {
     "miner": "Leucoptera coffeella",
     "phoma": "Phoma spp.",
     "rust": "Hemileia vastatrix",
+    "cercospora": "Cercospora coffeicola",
+    "red_spider": "Oligonychus coffeae / Tetranychus spp.",
 }
 
-# Verde para sano, tono óxido/roya para cualquier enfermedad
+# Verde para sano, tonos cálidos para cada enfermedad/plaga
 COLOR_CLASE = {
     "healthy": "#3F5C3E",
     "miner": "#B8541F",
     "phoma": "#8F4419",
     "rust": "#C1652F",
+    "cercospora": "#A6742C",
+    "red_spider": "#9B2C2C",
 }
 
 # ---------------------------------------------------------------------------
@@ -138,7 +144,9 @@ html, body, [class*="css"] {
 }
 
 .sello {
-    display: inline-block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     border: 3px double var(--sello-color, var(--rust));
     color: var(--sello-color, var(--rust));
     border-radius: 50%;
@@ -146,18 +154,11 @@ html, body, [class*="css"] {
     height: 128px;
     transform: rotate(-7deg);
     text-align: center;
-    padding-top: 26px;
     font-family: 'IBM Plex Mono', monospace;
-    line-height: 1.1;
 }
 .sello .pct {
-    font-size: 1.5rem;
+    font-size: 1.6rem;
     font-weight: 600;
-}
-.sello .lbl {
-    font-size: 0.55rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
 }
 
 .entrada-titulo {
@@ -368,16 +369,10 @@ with col_izq:
     st.markdown('<div class="etiqueta-muestra">Muestra No. ' +
                 datetime.now().strftime('%y%m%d-%H%M') + '</div>', unsafe_allow_html=True)
 
-    tab_archivo, tab_camara = st.tabs(["Subir foto", "Usar cámara"])
     imagen = None
-    with tab_archivo:
-        archivo = st.file_uploader("Foto de la hoja", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
-        if archivo is not None:
-            imagen = Image.open(archivo)
-    with tab_camara:
-        captura = st.camera_input("Tomar foto", label_visibility="collapsed")
-        if captura is not None:
-            imagen = Image.open(captura)
+    archivo = st.file_uploader("Foto de la hoja", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
+    if archivo is not None:
+        imagen = Image.open(archivo)
 
     if imagen is not None:
         st.image(imagen, use_container_width=True)
@@ -418,8 +413,7 @@ with col_der:
         with c2:
             st.markdown(
                 f'<div class="sello" style="--sello-color:{color}">'
-                f'<div class="pct">{confianza:.1f}%</div>'
-                f'<div class="lbl">confianza IA</div></div>',
+                f'<div class="pct">{confianza:.1f}%</div></div>',
                 unsafe_allow_html=True
             )
 
@@ -445,8 +439,9 @@ with col_der:
 
     st.markdown('</div>', unsafe_allow_html=True)
 
+nombres_clases = ", ".join(NOMBRES_BONITOS.get(c, c) for c in labels.values())
 st.markdown(
-    '<div class="nota-pie">Diagnóstico generado por IA a partir de un dataset de 4 clases '
-    '(sana, minador, phoma, roya) · Confirme siempre con un técnico agrónomo</div>',
+    f'<div class="nota-pie">Diagnóstico generado por IA a partir de un modelo entrenado en: '
+    f'{nombres_clases} · Confirme siempre con un técnico agrónomo</div>',
     unsafe_allow_html=True
 )
