@@ -1,251 +1,170 @@
 import streamlit as st
-import torch
-import torch.nn as nn
-from torchvision import models, transforms
-from PIL import Image
+import tensorflow as tf
+import numpy as np
+import json
 import os
-import datetime
+from PIL import Image
 from groq import Groq
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from reportlab.lib.units import cm
+import io
+from datetime import datetime
 
-# ----------------------------------------------------------------------
-# 1. CONFIGURACIÓN DE PÁGINA Y ESTILOS EXACTOS DE LA INTERFAZ
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------
+# Configuración de la página
+# -------------------------------------------------------------------
 st.set_page_config(
-    page_title="AgroDetect v2.0 - Diagnóstico Foliar",
-    page_icon="🌿",
-    layout="wide"
+    page_title="Detección de Enfermedades en Hojas de Café",
+    page_icon="🌱",
+    layout="centered"
 )
 
-# Estilos CSS personalizados para replicar el diseño crema y limpio
-st.markdown("""
-<style>
-    /* Fondo principal y tipografía */
-    .stApp {
-        background-color: #F6F4EE !important;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
-    
-    /* Panel contenedor derecho */
-    .card-container {
-        background-color: #EFECE4;
-        border-radius: 16px;
-        padding: 24px;
-        margin-top: 10px;
-        border: 1px solid #E2DEC9;
-    }
-
-    /* Insignias numeradas verdes (01, 02, etc.) */
-    .num-badge {
-        background-color: #2D5A43;
-        color: white;
-        font-weight: bold;
-        font-size: 13px;
-        border-radius: 12px;
-        padding: 4px 10px;
-        display: inline-block;
-        margin-right: 10px;
-        vertical-align: top;
-    }
-
-    /* Títulos dentro del informe */
-    .rec-item-title {
-        font-weight: bold;
-        color: #1A1A1A;
-        font-size: 14px;
-        display: inline-block;
-    }
-
-    /* Párrafos dentro del informe */
-    .rec-item-text {
-        color: #4A4A4A;
-        font-size: 13px;
-        line-height: 1.5;
-        margin-left: 45px;
-        margin-top: 4px;
-        margin-bottom: 18px;
-    }
-
-    /* Footer del sistema */
-    .custom-footer {
-        color: #8C8C8C;
-        font-size: 11px;
-        margin-top: 30px;
-        text-align: left;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# ----------------------------------------------------------------------
-# 2. MODELO DE CLASIFICACIÓN (PyTorch)
-# ----------------------------------------------------------------------
-CLASSES = ['Cercospora / Mancha de Hierro', 'Roya del Cafeto', 'Miner de la Hoja', 'Phoma', 'Hoja Sana']
-
+# -------------------------------------------------------------------
+# Cargar el modelo y las clases (una sola vez, se cachea)
+# -------------------------------------------------------------------
 @st.cache_resource
-def load_disease_model():
-    model = models.resnet18(weights=None)
-    num_ftrs = model.fc.in_features
-    model.fc = nn.Linear(num_ftrs, len(CLASSES))
-    
-    if os.path.exists('modelo_cafe.pth'):
-        model.load_state_dict(torch.load('modelo_cafe.pth', map_location=torch.device('cpu')))
-    
-    model.eval()
-    return model
+def cargar_modelo():
+    modelo = tf.keras.models.load_model('modelo_cafe.h5')
+    with open('labels.json') as f:
+        labels = json.load(f)  # {"0": "healthy", "1": "miner", ...}
+    return modelo, labels
 
-model = load_disease_model()
+modelo, labels = cargar_modelo()
 
-transform = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-])
+# -------------------------------------------------------------------
+# Nombres bonitos para mostrar en pantalla (ajusten si quieren)
+# -------------------------------------------------------------------
+NOMBRES_BONITOS = {
+    "healthy": "Hoja sana",
+    "miner": "Minador de la hoja (Leaf Miner)",
+    "phoma": "Phoma",
+    "rust": "Roya del café (Rust)",
+}
 
-# ----------------------------------------------------------------------
-# 3. INTEGRACIÓN CON API DE GROQ (Formato HTML idéntico a la UI)
-# ----------------------------------------------------------------------
-def generar_orientacion_groq(enfermedad, porcentaje_confianza):
-    api_key = os.environ.get("GROQ_API_KEY") or st.secrets.get("GROQ_API_KEY", None)
-    
+# -------------------------------------------------------------------
+# Cliente de Groq (la API key se guarda en Secrets, nunca en el código)
+# -------------------------------------------------------------------
+@st.cache_resource
+def cargar_cliente_groq():
+    api_key = st.secrets.get("GROQ_API_KEY", os.environ.get("GROQ_API_KEY"))
     if not api_key:
-        # Respuesta por defecto maquetada exactamente como la imagen si no hay clave API activa
-        return """
-        <div>
-            <div>
-                <span class="num-badge">01</span>
-                <span class="rec-item-title">Diferenciación a simple vista</span>
-                <div class="rec-item-text">Cercospora coffeicola produce manchas circulares de 3-8 mm con centro grisáceo-necrótico y halo amarillo-anaranjado. A diferencia de la Roya, no hay pústulas en relieve ni esporas en el envés. Se confunde frecuentemente con manchas de nutrición (deficiencia de Mn), pero estas carecen del halo definido y son más irregulares.</div>
-            </div>
-            <div>
-                <span class="num-badge">02</span>
-                <span class="rec-item-title">Manejo agronómico preventivo y correctivo</span>
-                <div class="rec-item-text">Aumentar fertilización nitrogenada (urea foliar al 2%) y potásica. Regular sombra al 40-50% para reducir estrés hídrico. Aplicar caldo bordelés preventivo antes de lluvias intensas. En brotes activos, usar fungicidas específicos con mancozeb o clorotalonil. Evitar trabajos en campo con follaje mojado para no diseminar esporas.</div>
-            </div>
-            <div>
-                <span class="num-badge">03</span>
-                <span class="rec-item-title">Consulta a un técnico IHCAFE</span>
-                <div class="rec-item-text">Consulte si las manchas aparecen en más del 10% del foliage o si persisten tras dos aplicaciones fungicidas. El técnico analizará niveles de N y K en suelo/hoja para descartar que sea un problema nutricional primario que debilite el tejido y facilite la infección.</div>
-            </div>
-            <div>
-                <span class="num-badge">04</span>
-                <span class="rec-item-title">Monitoreo y seguimiento</span>
-                <div class="rec-item-text">Monitoree quincenalmente en épocas secas y calurosas (febrero-abril), cuando el estrés hídrico potencia la enfermedad. Revise hojas del tercio medio de la planta. Mejora: nuevas hojas sin manchas, recuperación del color verde intenso. Empeora: coalescencia de manchas, secado de bordes foliares.</div>
-            </div>
-            <div>
-                <span class="num-badge">05</span>
-                <span class="rec-item-title">Registro y trazabilidad</span>
-                <div class="rec-item-text">Registre análisis foliar bianuales, niveles de sombra (% cobertura), tipo de sombra (Inga, Erythrina, malla), fecha de aplicaciones y condiciones climáticas previas. Documente si la parcela está en ladera expuesta al sol (mayor riesgo). Estos datos son clave para ajustar el manejo integral del cultivo.</div>
-            </div>
-        </div>
-        """
+        return None
+    return Groq(api_key=api_key)
 
-    try:
-        client = Groq(api_key=api_key)
-        prompt = f"""
-        Actúa como un experto agrónomo del instituto IHCAFE.
-        Se ha detectado la siguiente enfermedad en la hoja de café:
-        - Enfermedad: {enfermedad}
-        - Confianza: {porcentaje_confianza:.1f}%
+cliente_groq = cargar_cliente_groq()
 
-        Genera exactamente 5 puntos de orientación agronómica estructurados en formato HTML utilizando este formato exacto para cada uno:
 
-        <div>
-            <span class="num-badge">NUMERO</span>
-            <span class="rec-item-title">TITULO DEL PUNTO</span>
-            <div class="rec-item-text">DESCRIPCION DETALLADA</div>
-        </div>
+def predecir(imagen_pil):
+    """Recibe una imagen PIL, devuelve (clase, porcentaje_confianza)."""
+    img = imagen_pil.resize((224, 224)).convert('RGB')
+    arr = np.array(img)
+    arr = tf.keras.applications.mobilenet_v2.preprocess_input(arr)
+    arr = np.expand_dims(arr, axis=0)
+    pred = modelo.predict(arr)[0]
+    idx = int(np.argmax(pred))
+    clase = labels[str(idx)]
+    confianza = float(pred[idx]) * 100
+    return clase, confianza
 
-        Los 5 puntos deben cubrir:
-        01: Diferenciación a simple vista
-        02: Manejo agronómico preventivo y correctivo
-        03: Consulta a un técnico IHCAFE
-        04: Monitoreo y seguimiento
-        05: Registro y trazabilidad
 
-        Retorna ÚNICAMENTE el código HTML dentro del div sin bloques de markdown ```html.
-        """
+def generar_recomendaciones(clase):
+    """Le pide a Groq la descripción, recomendaciones, buenas prácticas y seguimiento."""
+    nombre_bonito = NOMBRES_BONITOS.get(clase, clase)
 
-        completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.3,
-            max_tokens=1000,
-        )
-        return completion.choices[0].message.content
-    except Exception as e:
-        return f"<p style='color:red;'>Error al consultar Groq API: {str(e)}</p>"
+    prompt = f"""
+Eres un ingeniero agrónomo experto en el cultivo de café en Centroamérica.
+Un sistema de inteligencia artificial acaba de analizar una hoja de café y detectó: {nombre_bonito}.
 
-# ----------------------------------------------------------------------
-# 4. ESTRUCTURA Y LAYOUT VISUAL DE LA APLICACIÓN
-# ----------------------------------------------------------------------
+Genera una respuesta en español, clara y práctica para un caficultor, organizada EXACTAMENTE en estas 4 secciones con esos títulos:
 
-col1, col2 = st.columns([1.1, 1], gap="large")
+1. Descripción de la enfermedad
+2. Recomendaciones técnicas para el manejo preventivo
+3. Buenas prácticas para el cuidado del cultivo
+4. Acciones de seguimiento y monitoreo
 
-# --- COLUMNA IZQUIERDA: Captura / Entrada ---
-with col1:
-    st.markdown("<h2 style='color: #2C2C2C; margin-bottom: 0px;'>Captura de Imagen Foliar</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='color: #6E6E6E; font-size: 12px;'>Posicione la hoja de café bajo luz natural. El sistema detectará automáticamente signos de Roya, Cercospora o Plagas.</p>", unsafe_allow_html=True)
-    
-    opcion_origen = st.radio("", ["📁 Subir archivo", "📷 Usar cámara"], horizontal=True)
-    
-    uploaded_file = None
-    if "Subir" in opcion_origen:
-        uploaded_file = st.file_uploader("", type=["jpg", "jpeg", "png"])
-    else:
-        uploaded_file = st.camera_input("")
+Si la clase es "Hoja sana", ajusta el contenido a recomendaciones de mantenimiento preventivo en vez de tratamiento de enfermedad.
+Sé conciso pero útil, con puntos accionables.
+"""
 
-    if uploaded_file is not None:
-        image = Image.open(uploaded_file).convert('RGB')
-        st.image(image, use_container_width=True)
+    respuesta = cliente_groq.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.4,
+    )
+    return respuesta.choices[0].message.content
 
-# --- COLUMNA DERECHA: Resultados ---
-with col2:
-    if uploaded_file is not None:
-        # Inferencia del modelo
-        tensor_img = transform(image).unsqueeze(0)
-        with torch.no_grad():
-            outputs = model(tensor_img)
-            probabilities = torch.nn.functional.softmax(outputs[0], dim=0)
-        
-        top_prob, top_catid = torch.topk(probabilities, 1)
-        enfermedad_predicha = CLASSES[top_catid.item()]
-        confianza_val = top_prob.item() * 100
 
-        fecha_actual = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
+def generar_pdf(clase, confianza, texto_groq):
+    """Arma un PDF sencillo con el resultado y las recomendaciones."""
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=letter)
+    ancho, alto = letter
 
-        # Subencabezado pequeño arriba
-        st.markdown(f"<div style='display: flex; justify-content: space-between; font-size: 10px; color: #8A8A8A; letter-spacing: 0.5px;'><span>ÚLTIMO DIAGNÓSTICO</span><span>{fecha_actual}</span></div>", unsafe_allow_html=True)
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(2 * cm, alto - 2 * cm, "Reporte de Detección - Hojas de Café")
 
-        # Diagnóstico y Porcentaje Gigante (Alineados como en la imagen)
-        c_head1, c_head2 = st.columns([3, 1])
-        with c_head1:
-            st.markdown(f"<h1 style='color: #1A1A1A; margin-top: -10px; font-size: 28px;'>{enfermedad_predicha}</h1>", unsafe_allow_html=True)
-            st.markdown("<p style='color: #7A7A7A; font-size: 11px; margin-top: -15px;'>Cercospora coffeicola • Detectado recientemente</p>", unsafe_allow_html=True)
-        with c_head2:
-            st.markdown(f"<h1 style='text-align: right; color: #1A1A1A; font-size: 34px; margin-top: -10px;'>{confianza_val:.1f}%</h1>", unsafe_allow_html=True)
-            st.markdown("<p style='text-align: right; font-size: 9px; color: #7A7A7A; margin-top: -20px; font-weight: bold;'>CONFIANZA IA</p>", unsafe_allow_html=True)
+    c.setFont("Helvetica", 10)
+    c.drawString(2 * cm, alto - 2.7 * cm, f"Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
 
-        # Panel Beige Contenedor de Recomendaciones
-        st.markdown('<div class="card-container">', unsafe_allow_html=True)
-        st.markdown("<p style='font-size: 11px; font-weight: bold; color: #2D5A43; margin-bottom: 2px;'>💡 ORIENTACIÓN Y MANEJO PREVENTIVO</p>", unsafe_allow_html=True)
-        st.markdown("<p style='font-size: 11px; color: #6A6A6A; margin-bottom: 15px;'>Aquí tienes una recomendación técnica detallada para manejar la situación:</p>", unsafe_allow_html=True)
-        
-        with st.spinner("Generando orientación con Groq API..."):
-            html_groq = generar_orientacion_groq(enfermedad_predicha, confianza_val)
-        
-        st.markdown(html_groq, unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(2 * cm, alto - 3.6 * cm, f"Resultado: {NOMBRES_BONITOS.get(clase, clase)}")
+    c.drawString(2 * cm, alto - 4.2 * cm, f"Confianza: {confianza:.2f}%")
 
-        # Historial reciente en la parte inferior
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown(f"""
-        <div style="background-color: #FFFFFF; padding: 10px 15px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #EAEAEA;">
-            <span style="font-size: 12px; color: #333;"><span style="color: #D9534F;">●</span> {enfermedad_predicha}</span>
-            <span style="font-size: 10px; color: #AAA;">{fecha_actual}</span>
-        </div>
-        """, unsafe_allow_html=True)
+    c.setFont("Helvetica", 10)
+    y = alto - 5.2 * cm
+    for linea in texto_groq.split("\n"):
+        if y < 2 * cm:
+            c.showPage()
+            c.setFont("Helvetica", 10)
+            y = alto - 2 * cm
+        c.drawString(2 * cm, y, linea[:110])  # recorta líneas muy largas
+        y -= 0.5 * cm
 
-    else:
-        st.info("👈 Por favor, carga o toma una fotografía de la hoja de café para desplegar el diagnóstico y el informe del IHCAFE.")
+    c.save()
+    buffer.seek(0)
+    return buffer
 
-# Footer global
-st.markdown("<div class='custom-footer'>© 2026 AGRODETECT • SOPORTE IHCAFE</div>", unsafe_allow_html=True)
+
+# -------------------------------------------------------------------
+# Interfaz
+# -------------------------------------------------------------------
+st.title("🌱 Detección de Enfermedades en Hojas de Café")
+st.write("Suban una foto de una hoja de café y el sistema va a detectar si tiene alguna enfermedad, "
+         "además de darles recomendaciones técnicas generadas con IA.")
+
+archivo = st.file_uploader("Subir imagen de la hoja", type=["jpg", "jpeg", "png"])
+
+if archivo is not None:
+    imagen = Image.open(archivo)
+    st.image(imagen, caption="Imagen cargada", use_column_width=True)
+
+    if st.button("Analizar hoja"):
+        with st.spinner("Analizando la imagen..."):
+            clase, confianza = predecir(imagen)
+
+        st.success(f"Resultado: **{NOMBRES_BONITOS.get(clase, clase)}**")
+        st.metric("Confianza de la predicción", f"{confianza:.2f}%")
+
+        if cliente_groq is None:
+            st.warning("No se encontró la API key de Groq (configurar GROQ_API_KEY en Secrets). "
+                       "No se pueden generar las recomendaciones.")
+        else:
+            with st.spinner("Generando recomendaciones con IA..."):
+                texto_groq = generar_recomendaciones(clase)
+
+            st.markdown("---")
+            st.markdown(texto_groq)
+
+            # Botón para descargar el reporte en PDF
+            pdf_buffer = generar_pdf(clase, confianza, texto_groq)
+            st.download_button(
+                label="Descargar reporte en PDF",
+                data=pdf_buffer,
+                file_name="reporte_hoja_cafe.pdf",
+                mime="application/pdf"
+            )
+else:
+    st.info("Esperando que suban una imagen.")
