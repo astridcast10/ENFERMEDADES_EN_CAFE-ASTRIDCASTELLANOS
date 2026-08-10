@@ -428,10 +428,3 @@ with col_der:
             )
 
     st.markdown('</div>', unsafe_allow_html=True)
-
-nombres_clases = ", ".join(NOMBRES_BONITOS.get(c, c) for c in labels.values())
-st.markdown(
-    f'<div class="nota-pie">Diagnóstico generado por IA a partir de un modelo entrenado en: '
-    f'{nombres_clases} · Confirme siempre con un técnico agrónomo</div>',
-    unsafe_allow_html=True
-)
