@@ -69,6 +69,7 @@ html, body, [class*="css"] {
     background-image:
         radial-gradient(circle at 20% 20%, rgba(139,115,85,0.06) 0%, transparent 45%),
         radial-gradient(circle at 80% 60%, rgba(63,92,62,0.05) 0%, transparent 45%);
+    zoom: 0.85;
 }
 
 .eyebrow {
@@ -340,11 +341,11 @@ def generar_pdf(clase, confianza, texto_groq):
     buffer.seek(0)
     return buffer
 
-st.markdown('<div class="eyebrow">UTH · Inteligencia de Negocios · Proyecto de nube</div>', unsafe_allow_html=True)
+st.markdown('<div class="eyebrow">UTH · Inteligencia de Negocios · Proyecto de nube · Astrid Castellanos</div>', unsafe_allow_html=True)
 st.markdown('<div class="titulo-principal">Cuaderno de campo</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="subtitulo">Registro de una hoja de café para diagnóstico. '
-    'Suba una foto y el sistema anota la especie detectada, '
+    'Suba una foto o tómela con la cámara y el sistema anota la especie detectada, '
     'la confianza y las recomendaciones de manejo.</div>',
     unsafe_allow_html=True
 )
