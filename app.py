@@ -445,3 +445,4 @@ with col_der:
             )
 
     st.markdown('</div>', unsafe_allow_html=True)
+nombres_clases = ", ".join(NOMBRES_BONITOS.get(c, c) for c in labels.values())
