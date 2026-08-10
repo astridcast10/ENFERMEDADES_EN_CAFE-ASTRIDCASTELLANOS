@@ -36,7 +36,6 @@ NOMBRES_CIENTIFICOS = {
     "red_spider": "Oligonychus coffeae / Tetranychus spp.",
 }
 
-# Verde para sano, tonos cálidos para cada enfermedad/plaga
 COLOR_CLASE = {
     "healthy": "#3F5C3E",
     "miner": "#B8541F",
@@ -151,6 +150,13 @@ html, body, [class*="css"] {
     font-size: 1.6rem;
     font-weight: 600;
 }
+.sello .etiqueta-precision {
+    font-size: 0.6rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.75;
+    margin-top: 0.1rem;
+}
 
 .entrada-titulo {
     font-family: 'Fraunces', serif;
@@ -245,7 +251,6 @@ def cargar_cliente_groq():
 modelo, labels = cargar_modelo()
 cliente_groq = cargar_cliente_groq()
 
-
 def predecir(imagen_pil):
     img = imagen_pil.resize((224, 224)).convert('RGB')
     arr = np.array(img)
@@ -256,7 +261,6 @@ def predecir(imagen_pil):
     clase = labels[str(idx)]
     confianza = float(pred[idx]) * 100
     return clase, confianza
-
 
 def generar_recomendaciones(clase):
     nombre_bonito = NOMBRES_BONITOS.get(clase, clase)
@@ -280,8 +284,8 @@ Sé conciso pero útil, en párrafos cortos, sin usar viñetas ni asteriscos.
         messages=[{"role": "user", "content": prompt}],
         temperature=0.4,
     )
-    return respuesta.choices[0].message.content
-
+    texto = respuesta.choices[0].message.content
+    return texto.replace("**", "").replace("*", "")
 
 def parsear_secciones(texto):
     """Divide el texto de Groq en las 4 secciones usando sus títulos como separadores."""
@@ -306,7 +310,6 @@ def parsear_secciones(texto):
     if not secciones:
         secciones["Recomendaciones"] = texto
     return secciones
-
 
 def generar_pdf(clase, confianza, texto_groq):
     buffer = io.BytesIO()
@@ -337,7 +340,7 @@ def generar_pdf(clase, confianza, texto_groq):
     buffer.seek(0)
     return buffer
 
-st.markdown('<div class="eyebrow">UTH · Inteligencia de Negocios · Proyecto de nube · Astrid Castellanos</div>', unsafe_allow_html=True)
+st.markdown('<div class="eyebrow">UTH · Inteligencia de Negocios · Proyecto de nube</div>', unsafe_allow_html=True)
 st.markdown('<div class="titulo-principal">Cuaderno de campo</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="subtitulo">Registro de una hoja de café para diagnóstico. '
@@ -398,7 +401,8 @@ with col_der:
         with c2:
             st.markdown(
                 f'<div class="sello" style="--sello-color:{color}">'
-                f'<div class="pct">{confianza:.1f}%</div></div>',
+                f'<div><div class="pct">{confianza:.1f}%</div>'
+                f'<div class="etiqueta-precision">precisión</div></div></div>',
                 unsafe_allow_html=True
             )
 
