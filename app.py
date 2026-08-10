@@ -337,7 +337,7 @@ def generar_pdf(clase, confianza, texto_groq):
     buffer.seek(0)
     return buffer
 
-st.markdown('<div class="eyebrow">UTH · Inteligencia de Negocios · Proyecto de nube</div>', unsafe_allow_html=True)
+st.markdown('<div class="eyebrow">UTH · Inteligencia de Negocios · Proyecto de nube · Astrid Castellanos</div>', unsafe_allow_html=True)
 st.markdown('<div class="titulo-principal">Cuaderno de campo</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="subtitulo">Registro de una hoja de café para diagnóstico. '
